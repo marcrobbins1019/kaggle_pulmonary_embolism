@@ -1,1 +1,1 @@
-#test new thing here
+#class FullNormalizedSeriesMemoizer(input_cache_dir,output_cache_dir,normalize):
