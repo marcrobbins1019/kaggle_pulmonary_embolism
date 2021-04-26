@@ -3,12 +3,12 @@ from tensorflow.keras.utils import Sequence
 
 class PE3DGenerator(Sequence):
 
-    def __init__(self, x_set, y_set, batch_size):
-        self.x, self.y = x_set, y_set
+    def __init__(self, train_df, validation_df, batch_size):
+        self.x, self.y = train_df, validation_df
         self.batch_size = batch_size
 
     def __len__(self):
-        return math.ceil(len(self.x) / self.batch_size)
+        return len(self.train_df)
 
     def __getitem__(self, idx):
         batch_x = self.x[idx * self.batch_size:(idx + 1) *

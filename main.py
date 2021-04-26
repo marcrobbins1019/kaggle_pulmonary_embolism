@@ -3,6 +3,7 @@ import argparse
 import pandas as pd
 
 from models import models
+from train_utils import PE3DGenerator
 
 parser = argparse.ArgumentParser()
 
@@ -30,11 +31,16 @@ def main(argv=None):
     model.compile(optimizer='adam',
                   metrics=['accuracy', 'roc_auc'])  # TODO
 
-    train_csv = pd.read_csv(args.train_csv)
-    val_csv = pd.read_csv(args.validation_csv)
+    train_df = pd.read_csv(args.train_csv)
+    val_df = pd.read_csv(args.validation_csv)
+
+    generator = PE3DGenerator(train_df)
+
+
 
     # TODO figure out how to use with generator?
-    model.fit()  # TODO
+    #TODO x and y different?
+    model.fit(x=generator)  # TODO
     # TODO build train generator
 
 
