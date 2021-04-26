@@ -1,11 +1,16 @@
 import argparse
 
-from kaggle_pulmonary_embolism.models import models
+import pandas as pd
+
+from models import models
 
 parser = argparse.ArgumentParser()
 
 parser.add_argument('-dir', "--cache_dir")
 parser.add_argument('-model', '--model')
+
+parser.add_argument('-tq', "--train_csv")
+parser.add_argument('-vq', "--validation_csv")
 
 parser.add_argument('-window', '--window', default=(400, 40), type=int)
 parser.add_argument("-n_dim", "--number_dimensions", default=3, choices=[2, 3])
@@ -24,6 +29,10 @@ def main(argv=None):
     model = models[args.model]
     model.compile(optimizer='adam',
                   metrics=['accuracy', 'roc_auc'])  # TODO
+
+    train_csv = pd.read_csv(args.train_csv)
+    val_csv = pd.read_csv(args.validation_csv)
+
     # TODO figure out how to use with generator?
     model.fit()  # TODO
     # TODO build train generator

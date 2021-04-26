@@ -4,6 +4,7 @@ import pickle
 import numpy as np
 import pandas as pd
 import pydicom
+
 from image_preprocessing import get_representation
 
 SLICE_LEVEL_DICOMS = ["Pixel Data", "InstanceNumber", "SOPInstanceUID"]
@@ -14,26 +15,24 @@ def save_by_type(object, file_path):
         np.save(file_path, object)
     else:
         file_path += '.pkl'
-        pickle.dump(object, open(file_path,'wb'))
+        pickle.dump(object, open(file_path, 'wb'))
 
 
-def load_by_type(file_path):
-    extension = os.path.splitext(file_path)[1]
-    if extension == ".npy":
-        obj = np.load(file_path)
-    elif extension == ".pkl":
-        obj = pickle.load(open(file_path,'rb'))
-    else:
-        raise Exception("Unrecognized File Extension")
-
-    return obj
+def load_by_type(file_path_no_ext):
+    try:
+        return pickle.load(open(file_path_no_ext + '.pkl', 'rb'))
+    except:
+        try:
+            return np.load(file_path_no_ext + '.npy')
+        except:
+            raise Exception("Neither '.pkl' nor 'npy' file present")
 
 
 def with_caching(func):
     def process_cache(*args, **kwargs):
         if args[0].read_cache:
             try:
-                object = load_by_type(os.path.join(args[0].named_cache_dir,kwargs['study_id']))
+                object = load_by_type(os.path.join(args[0].named_cache_dir, kwargs['study_id']))
             except:
                 object = func(*args, **kwargs)
                 if args[0].write_cache:
@@ -65,6 +64,9 @@ def combine_full_series(study_df, path_to_series):
                elem.description() not in SLICE_LEVEL_DICOMS}
     volume_3d = np.array([dcm.pixel_array for dcm in sorted_array])
 
+    volume_3d = volume_3d + float(representative_dcm.RescaleIntercept)
+    volume_3d = volume_3d * float(representative_dcm.RescaleSlope)
+
     output_dic.update(dcm_dic)
     output_dic['volume_3d'] = volume_3d
     return output_dic
@@ -74,9 +76,9 @@ class FullSeriesPickleMemoizer():
     def __init__(self, train_csv_path,
                  dcm_dir=None,
                  cache_dir=None,
-                 read_cache = True,
-                 write_cache = True,
-                 name='standard',):
+                 read_cache=True,
+                 write_cache=True,
+                 name='standard', ):
         self.name = name
         self.dcm_dir = dcm_dir
         self.read_cache = read_cache
@@ -88,7 +90,6 @@ class FullSeriesPickleMemoizer():
             self.named_cache_dir = os.path.join(cache_dir, name)
             os.makedirs(self.named_cache_dir, exist_ok=True)
 
-
     @with_caching
     def get_study(self, study_id):
         study_df = self.train_df[self.train_df['StudyInstanceUID'] == study_id]
@@ -97,20 +98,25 @@ class FullSeriesPickleMemoizer():
         series_3d_full = combine_full_series(study_df, path_to_series)
         return series_3d_full
 
+
 class FinalRepPickleMemoizer():
-    def __init__(self, rep_name = 'final_rep',
-                 window = (400,40),
-                 dimension = (40,128,128),
+    def __init__(self, rep_name='final_rep',
+                 window=(400, 40),
+                 dimension=(40, 128, 128),
                  normalize_mm=False,
+                 read_cache=True,
+                 write_cache=True,
                  *args,
                  **kwargs):
+        self.full_memoizer = FullSeriesPickleMemoizer(*args, **kwargs)
 
-        self.full_memoizer = FinalRepPickleMemoizer(*args, **kwargs)
+        self.read_cache = read_cache
+        self.write_cache = write_cache
+
         self.name = rep_name
         self.window = window
         self.dimension = dimension
         self.normalize_mm = normalize_mm
-
         self.kwargs = kwargs
 
         if kwargs['cache_dir']:
@@ -128,38 +134,6 @@ class FinalRepPickleMemoizer():
         return final_series
 
 
-
-
 PATH_TO_TRAIN_CSV = '/algo/users/marc/kaggle_pe/train.csv'
 PATH_TO_DCM_DIR = '/algo/users/marc/kaggle_pe/data/train'
 PATH_TO_FULL_SERIES_CACHE = '/algo/users/marc/kaggle_pe/data/full_series_cache'
-
-full_memoizer = FullSeriesPickleMemoizer(train_csv_path=PATH_TO_TRAIN_CSV,
-                                         dcm_dir=PATH_TO_DCM_DIR,
-                                         cache_dir=PATH_TO_FULL_SERIES_CACHE,
-                                         read_cache=True,
-                                         write_cache=True
-                                         )
-
-full_memoizer.get_study(study_id='5a7be944da6d')
-
-final_memoizer = FinalRepPickleMemoizer(train_csv_path=PATH_TO_TRAIN_CSV,
-                                         dcm_dir=PATH_TO_DCM_DIR,
-                                         cache_dir=PATH_TO_FULL_SERIES_CACHE,
-                                         read_cache=True,
-                                         write_cache=True
-                                         )
-
-out_rep = final_memoizer.get_study(study_id='5a7be944da6d')
-pickle.dump(out_rep,open('/tmp/outtest.pkl','wb'))
-
-
-
-# maybe just put this in the second rep_fetcher (why combine these?)
-# def get_representation(window=(400,40),
-#                        dimension = (40,256,256),
-#                        normalize_mm = False):
-#     return "test"
-
-
-# see if thing is cached first (special function for this?)
